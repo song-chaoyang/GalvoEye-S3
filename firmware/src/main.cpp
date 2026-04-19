@@ -1,8 +1,8 @@
 /**
  * @file main.cpp
- * @brief bbLaser-S3 激光振镜投影仪 - 主程序入口
+ * @brief GalvoEye-S3 激光振镜投影仪 - 主程序入口
  *
- * 本文件是 bbLaser-S3 固件的主程序，负责:
+ * 本文件是 GalvoEye-S3 固件的主程序，负责:
  * - 系统初始化 (硬件、外设、网络)
  * - WiFi 连接管理 (AP 模式和 STA 模式)
  * - WebSocket 服务器 (接收 PC 端坐标指令)
@@ -139,7 +139,7 @@ void setup() {
 
     Serial.println("");
     Serial.println("========================================");
-    Serial.println("  bbLaser-S3 激光振镜投影仪");
+    Serial.println("  GalvoEye-S3 激光振镜投影仪");
     Serial.println("  基于 bbLaser 项目衍生 (CC-BY-NC-SA 3.0)");
     Serial.println("  目标平台: ESP32-S3-CAM");
     Serial.println("========================================");

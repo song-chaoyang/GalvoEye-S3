@@ -1,7 +1,7 @@
-# bbLaser-S3: ESP32-S3 智能激光振镜投影仪
+# GalvoEye-S3: ESP32-S3 AI 智能振镜投影仪
 
 <p align="center">
-  <img src="docs/images/final_product.jpg" width="600" alt="bbLaser-S3 成品效果图">
+  <img src="docs/images/final_product.jpg" width="600" alt="GalvoEye-S3 成品效果图">
 </p>
 
 <p align="center">
@@ -16,9 +16,9 @@
 
 ## 📢 项目说明
 
-**bbLaser-S3** 是基于 [bbLaser](https://github.com/RealCorebb/bbLaser)（by [Corebb](https://github.com/RealCorebb)）的衍生项目。在原版基础上进行了以下重大升级：
+**GalvoEye-S3** 是基于 [bbLaser](https://github.com/RealCorebb/bbLaser)（by [Corebb](https://github.com/RealCorebb)）的衍生项目。在原版基础上进行了以下重大升级：
 
-| 升级项 | 原版 bbLaser | bbLaser-S3 |
+| 升级项 | 原版 bbLaser | GalvoEye-S3 |
 |--------|-------------|------------|
 | 主控 | ESP32 | **ESP32-S3**（双核 240MHz + 8MB PSRAM） |
 | 视觉能力 | 无 | **内置摄像头 + TinyML 人脸检测** |
@@ -145,15 +145,15 @@ PC (Python)                          ESP32-S3
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/960208781/bbLaser-S3.git
-cd bbLaser-S3
+git clone https://github.com/960208781/GalvoEye-S3.git
+cd GalvoEye-S3
 
 # 2. 烧录固件
 cd firmware
 pio run -t upload
 
 # 3. 连接 WiFi
-# 设备会创建热点 "bbLaser-S3-AP"，密码 "12345678"
+# 设备会创建热点 "GalvoEye-S3-AP"，密码 "12345678"
 # 或在代码中修改 WiFi 账号密码
 
 # 4. （可选）安装 PC 端软件
@@ -180,7 +180,7 @@ python main.py --mode calibrate
 ## 📁 项目结构
 
 ```
-bbLaser-S3/
+GalvoEye-S3/
 ├── firmware/                    # ESP32-S3 固件（PlatformIO）
 │   ├── platformio.ini          # PlatformIO 配置
 │   └── src/

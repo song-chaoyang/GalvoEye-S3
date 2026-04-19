@@ -2,7 +2,7 @@
  * @file pin_defs.h
  * @brief ESP32-S3-CAM 激光振镜投影仪 - 引脚定义
  *
- * 本文件定义了 bbLaser-S3 项目中所有硬件引脚的映射关系。
+ * 本文件定义了 GalvoEye-S3 项目中所有硬件引脚的映射关系。
  * 基于 ESP32-S3-CAM 开发板，包含 DAC、激光 PWM、安全传感器、
  * SD 卡、按钮和 LED 等外设引脚。
  *
@@ -135,7 +135,7 @@
 // ============================================================
 
 // AP 模式默认参数
-#define AP_SSID               "bbLaser-S3"
+#define AP_SSID               "GalvoEye-S3"
 #define AP_PASSWORD           "12345678"  // 最少8位
 #define AP_CHANNEL            6
 #define AP_MAX_CONN           4

@@ -370,7 +370,7 @@ Creative Commons may be contacted at https://creativecommons.org/.
 
 PROJECT NOTICE
 
-bbLaser-S3
+GalvoEye-S3
 Based on bbLaser by Corebb (https://github.com/Corebb/bbLaser)
 Modified and extended for ESP32-S3-CAM with camera, ToF sensor, and safety features.
 

@@ -249,7 +249,7 @@ private:
                     char welcome[256];
                     snprintf(welcome, sizeof(welcome),
                              "{\"type\":\"welcome\","
-                             "\"device\":\"bbLaser-S3\","
+                             "\"device\":\"GalvoEye-S3\","
                              "\"version\":\"1.0.0\","
                              "\"freeHeap\":%lu}",
                              ESP.getFreeHeap());

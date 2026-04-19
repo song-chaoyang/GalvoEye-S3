@@ -22,7 +22,7 @@
 ### 1. 克隆项目
 
 ```bash
-cd bbLaser-S3/software
+cd GalvoEye-S3/software
 ```
 
 ### 2. 创建虚拟环境（推荐）

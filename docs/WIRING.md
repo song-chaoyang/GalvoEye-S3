@@ -1,7 +1,7 @@
-# bbLaser-S3 接线说明
+# GalvoEye-S3 接线说明
 
 > 最后更新：2026 年 4 月
-> 项目：bbLaser-S3 — 基于 ESP32-S3 的 DIY 激光投影仪
+> 项目：GalvoEye-S3 — 基于 ESP32-S3 的 DIY 激光投影仪
 
 ---
 

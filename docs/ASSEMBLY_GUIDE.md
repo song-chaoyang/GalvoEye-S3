@@ -1,7 +1,7 @@
-# bbLaser-S3 完整组装教程
+# GalvoEye-S3 完整组装教程
 
 > 最后更新：2026 年 4 月
-> 项目：bbLaser-S3 — 基于 ESP32-S3 的 DIY 激光投影仪
+> 项目：GalvoEye-S3 — 基于 ESP32-S3 的 DIY 激光投影仪
 > 难度：中级（需要基本焊接能力）
 
 ---
@@ -330,8 +330,8 @@ pio --version
 ### 5.2 克隆项目代码
 
 ```bash
-git clone https://github.com/your-username/bbLaser-S3.git
-cd bbLaser-S3
+git clone https://github.com/960208781/GalvoEye-S3.git
+cd GalvoEye-S3
 ```
 
 ### 5.3 编译固件
@@ -382,7 +382,7 @@ pio device monitor -b 115200
 正常启动后，串口应输出类似以下信息：
 
 ```
-bbLaser-S3 v1.0.0
+GalvoEye-S3 v1.0.0
 ESP32-S3-CAM initialized
 SD card mounted
 MCP4822 initialized
@@ -437,7 +437,7 @@ brew install python3
 ### 6.2 创建虚拟环境
 
 ```bash
-cd bbLaser-S3/pc-software
+cd GalvoEye-S3/pc-software
 python3 -m venv venv
 
 # Windows
