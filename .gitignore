@@ -1,0 +1,56 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+venv/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# Calibration data
+calib_data.json
+
+# Training data
+runs/
+weights/
+*.pt
+*.pth
+*.onnx
+*.tflite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Build artifacts
+*.bin
+*.elf
+*.map
+*.hex
+
+# Temporary files
+*.tmp
+*.bak
