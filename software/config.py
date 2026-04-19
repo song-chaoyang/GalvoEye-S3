@@ -234,6 +234,12 @@ def apply_config_overrides(config_dict):
     global YOLO_ENABLE_TRACKING, SAFETY_MODE_ENABLED
     global SAFETY_DISTANCE_THRESHOLD, TARGET_LOST_TIMEOUT
     global CALIBRATION_GRID_SIZE, LOG_LEVEL
+    global YOLO_IMG_SIZE, YOLO_TRACKER_TYPE
+    global YOLO_TRACK_CONF, YOLO_TRACK_IOU
+    global LASER_MAX_SPEED, WEBSOCKET_TIMEOUT
+    global WEBSOCKET_RECONNECT_INTERVAL, WEBSOCKET_MAX_RETRIES
+    global BUTTON_SIZE, BUTTON_COUNT, BUTTON_SPACING, BUTTON_SHAPE
+    global DISPLAY_SHOW_BOXES, DISPLAY_SHOW_TRACK_IDS, DISPLAY_SHOW_FPS
 
     if "esp32_ip" in config_dict:
         ESP32_IP = config_dict["esp32_ip"]
@@ -263,3 +269,33 @@ def apply_config_overrides(config_dict):
         CALIBRATION_GRID_SIZE = config_dict["calibration_grid_size"]
     if "log_level" in config_dict:
         LOG_LEVEL = config_dict["log_level"]
+    if "yolo_img_size" in config_dict:
+        YOLO_IMG_SIZE = config_dict["yolo_img_size"]
+    if "yolo_tracker_type" in config_dict:
+        YOLO_TRACKER_TYPE = config_dict["yolo_tracker_type"]
+    if "yolo_track_conf" in config_dict:
+        YOLO_TRACK_CONF = config_dict["yolo_track_conf"]
+    if "yolo_track_iou" in config_dict:
+        YOLO_TRACK_IOU = config_dict["yolo_track_iou"]
+    if "laser_max_speed" in config_dict:
+        LASER_MAX_SPEED = config_dict["laser_max_speed"]
+    if "websocket_timeout" in config_dict:
+        WEBSOCKET_TIMEOUT = config_dict["websocket_timeout"]
+    if "websocket_reconnect_interval" in config_dict:
+        WEBSOCKET_RECONNECT_INTERVAL = config_dict["websocket_reconnect_interval"]
+    if "websocket_max_retries" in config_dict:
+        WEBSOCKET_MAX_RETRIES = config_dict["websocket_max_retries"]
+    if "button_size" in config_dict:
+        BUTTON_SIZE = config_dict["button_size"]
+    if "button_count" in config_dict:
+        BUTTON_COUNT = config_dict["button_count"]
+    if "button_spacing" in config_dict:
+        BUTTON_SPACING = config_dict["button_spacing"]
+    if "button_shape" in config_dict:
+        BUTTON_SHAPE = config_dict["button_shape"]
+    if "display_show_boxes" in config_dict:
+        DISPLAY_SHOW_BOXES = config_dict["display_show_boxes"]
+    if "display_show_track_ids" in config_dict:
+        DISPLAY_SHOW_TRACK_IDS = config_dict["display_show_track_ids"]
+    if "display_show_fps" in config_dict:
+        DISPLAY_SHOW_FPS = config_dict["display_show_fps"]

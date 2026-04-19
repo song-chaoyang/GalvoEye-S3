@@ -59,7 +59,7 @@ public:
         _laserG(0),
         _laserB(0),
         _initialized(false),
-        _spiSettings(SPISettings(20000000, MSBFIRST, SPI_MODE0))
+        _spiSettings(SPISettings(10000000, MSBFIRST, SPI_MODE0))
     {
     }
 

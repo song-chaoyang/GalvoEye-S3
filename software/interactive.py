@@ -521,14 +521,12 @@ class InteractiveManager:
             else:
                 # 正常/悬停状态：绘制轮廓
                 if btn.shape == "circle":
-                    # 绘制圆形轮廓（用多个点近似）
-                    radius = btn.size / 2
-                    num_points = 36
-                    for j in range(num_points):
-                        angle = 2 * np.pi * j / num_points
-                        px = btn.galvo_x + radius * np.cos(angle)
-                        py = btn.galvo_y + radius * np.sin(angle)
-                        await self.comm.draw_point(px, py, intensity=0.5)
+                    # 使用 draw_circle 绘制轮廓（1次 WebSocket 消息代替36次）
+                    await self.comm.draw_circle(
+                        btn.galvo_x, btn.galvo_y,
+                        btn.size / 2,
+                        speed=40,
+                    )
                 else:
                     # 绘制矩形轮廓
                     half = btn.size / 2

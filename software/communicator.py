@@ -84,6 +84,8 @@ class LaserCommunicator:
         self._receive_task: Optional[asyncio.Task] = None
         # 发送队列锁
         self._send_lock = asyncio.Lock()
+        # 重连任务（防止重复创建）
+        self._reconnect_task: Optional[asyncio.Task] = None
 
         # WebSocket URI
         self._uri = f"ws://{self.host}:{self.port}"
@@ -241,6 +243,7 @@ class LaserCommunicator:
             success = await self.connect()
             if success:
                 logger.info("重连成功")
+                self._reconnect_task = None
                 return
 
             # 等待重连间隔
@@ -272,8 +275,11 @@ class LaserCommunicator:
                 self._connected = False
                 if self._status_callback:
                     self._status_callback(False)
-                # 触发重连
-                asyncio.create_task(self._auto_reconnect())
+                # 触发重连（检查是否已有重连任务在运行，避免重复创建）
+                if self._reconnect_task is None or self._reconnect_task.done():
+                    self._reconnect_task = asyncio.create_task(self._auto_reconnect())
+                else:
+                    logger.debug("重连任务已在运行中，跳过重复创建")
             except Exception as e:
                 logger.error("发送数据异常: %s", e)
 

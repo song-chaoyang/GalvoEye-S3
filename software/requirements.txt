@@ -1,5 +1,6 @@
 opencv-python>=4.8.0
 ultralytics>=8.0.0
 numpy>=1.24.0
-websockets>=11.0
-pillow>=10.0.0
+websockets>=11.0,<14.0
+# PyTorch 依赖：ultralytics 会自动安装，如需 GPU 支持请手动安装对应版本的 torch
+# 例如：pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118

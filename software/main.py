@@ -18,7 +18,6 @@ import asyncio
 import logging
 import signal
 import sys
-import time
 from typing import Optional
 
 import cv2
@@ -396,7 +395,7 @@ async def run_track_mode(args):
             ret, frame = cap.read()
             if not ret:
                 logger.warning("读取帧失败")
-                time.sleep(0.01)
+                await asyncio.sleep(0.01)
                 continue
 
             # 执行目标检测
@@ -601,7 +600,7 @@ async def run_interactive_mode(args):
             ret, frame = cap.read()
             if not ret:
                 logger.warning("读取帧失败")
-                time.sleep(0.01)
+                await asyncio.sleep(0.01)
                 continue
 
             # 处理帧（检测手指交互）

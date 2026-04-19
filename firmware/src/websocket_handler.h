@@ -5,13 +5,16 @@
  * 本文件实现了基于 WebSockets 库的通信处理器，负责:
  * - 接收 PC 端发送的目标坐标指令
  * - 接收绘图指令 (点、线、圆、矩形、文字)
- * - 接收安全模式切换指令
+ * - 接收安全模式切换指令 (需二次确认)
+ * - 接收安全恢复确认指令
  * - 接收 ILDA 播放控制指令
  * - 发送设备状态信息回 PC 端
  * - 客户端连接/断开管理
+ * - Token 认证机制
  *
  * 通信协议 (JSON 格式):
  * 接收指令格式:
+ *   {"cmd":"auth","token":"GalvoEye2026"}       - 认证 (首次连接必须)
  *   {"cmd":"moveTo", "x":2048, "y":2048}         - 移动到坐标
  *   {"cmd":"drawPoint", "x":1000, "y":1000, "r":255, "g":0, "b":0} - 绘制点
  *   {"cmd":"drawLine", "x1":0, "y1":0, "x2":4095, "y2":4095, "r":255, "g":255, "b":255} - 绘制线
@@ -20,11 +23,14 @@
  *   {"cmd":"drawText", "text":"Hello", "x":100, "y":100, "scale":3} - 绘制文字
  *   {"cmd":"laserOff"}                              - 关闭激光
  *   {"cmd":"laserOn", "r":255, "g":255, "b":255}   - 开启激光
- *   {"cmd":"setSafety", "mode":"normal|override|off"} - 设置安全模式
+ *   {"cmd":"setSafety", "mode":"normal|override|off"} - 设置安全模式 (off 需二次确认)
+ *   {"cmd":"confirmRecovery"}                       - 确认安全恢复
  *   {"cmd":"getStatus"}                             - 请求状态
  *   {"cmd":"playILDA", "file":"test.ild"}           - 播放 ILDA 文件
  *   {"cmd":"stopILDA"}                              - 停止 ILDA 播放
  *   {"cmd":"home"}                                  - 回到中心位置
+ *   {"cmd":"emergencyStop"}                         - 紧急停止
+ *   {"cmd":"clearEmergency"}                        - 解除紧急停止
  *
  * @note 基于 bbLaser 项目衍生 (CC-BY-NC-SA 3.0)
  */
@@ -48,6 +54,9 @@ class SafetySystem;
 #define WS_RX_BUFFER_SIZE    512   // 接收缓冲区大小
 #define WS_TX_BUFFER_SIZE    512   // 发送缓冲区大小
 #define WS_MAX_JSON_DEPTH    10    // JSON 解析最大深度
+
+// 最大客户端连接数 (用于认证状态跟踪)
+#define WS_MAX_CLIENTS_TRACKED  WS_MAX_CLIENTS
 
 // ============================================================
 // WebSocket 事件回调类型
@@ -82,6 +91,11 @@ public:
         _stopILDACallback(nullptr),
         _clientConnected(false)
     {
+        // 初始化所有客户端的认证状态为未认证
+        for (int i = 0; i < WS_MAX_CLIENTS_TRACKED; i++) {
+            _clientAuthenticated[i] = false;
+            _safetyOffPending[i] = false;
+        }
     }
 
     /**
@@ -98,6 +112,7 @@ public:
 
         _server.begin();
         Serial.printf("[WebSocket] 服务器已启动，端口: %d\n", WS_PORT);
+        Serial.printf("[WebSocket] 认证 Token: %s\n", WS_AUTH_TOKEN);
         return true;
     }
 
@@ -202,6 +217,18 @@ public:
     }
 
     /**
+     * @brief 向指定客户端发送错误消息
+     * @param num 客户端编号
+     * @param errorMsg 错误描述
+     */
+    void sendErrorTo(uint8_t num, const char* errorMsg) {
+        char buffer[WS_TX_BUFFER_SIZE];
+        snprintf(buffer, sizeof(buffer),
+                 "{\"type\":\"error\",\"message\":\"%s\"}", errorMsg);
+        _server.sendTXT(num, buffer);
+    }
+
+    /**
      * @brief 发送确认消息
      * @param cmd 确认的指令名称
      */
@@ -212,6 +239,18 @@ public:
         broadcast(buffer);
     }
 
+    /**
+     * @brief 向指定客户端发送确认消息
+     * @param num 客户端编号
+     * @param cmd 确认的指令名称
+     */
+    void sendAckTo(uint8_t num, const char* cmd) {
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer),
+                 "{\"type\":\"ack\",\"cmd\":\"%s\"}", cmd);
+        _server.sendTXT(num, buffer);
+    }
+
 private:
     WebSocketsServer _server;       // WebSocket 服务器
     DACController* _dac;            // DAC 控制器引用
@@ -220,9 +259,60 @@ private:
     StopILDACallback _stopILDACallback;  // ILDA 停止回调
     bool _clientConnected;          // 客户端连接状态
 
+    // 客户端认证状态 (按客户端编号索引)
+    bool _clientAuthenticated[WS_MAX_CLIENTS_TRACKED];
+    // 安全系统禁用二次确认状态
+    bool _safetyOffPending[WS_MAX_CLIENTS_TRACKED];
+
     // ========================================================
     // 私有方法
     // ========================================================
+
+    /**
+     * @brief 检查客户端是否已认证
+     * @param num 客户端编号
+     * @return true 已认证
+     */
+    bool isAuthenticated(uint8_t num) {
+        if (num < WS_MAX_CLIENTS_TRACKED) {
+            return _clientAuthenticated[num];
+        }
+        return false;
+    }
+
+    /**
+     * @brief 设置客户端认证状态
+     * @param num 客户端编号
+     * @param auth 认证状态
+     */
+    void setAuthenticated(uint8_t num, bool auth) {
+        if (num < WS_MAX_CLIENTS_TRACKED) {
+            _clientAuthenticated[num] = auth;
+        }
+    }
+
+    /**
+     * @brief 检查安全禁用是否处于待确认状态
+     * @param num 客户端编号
+     * @return true 待确认
+     */
+    bool isSafetyOffPending(uint8_t num) {
+        if (num < WS_MAX_CLIENTS_TRACKED) {
+            return _safetyOffPending[num];
+        }
+        return false;
+    }
+
+    /**
+     * @brief 设置安全禁用待确认状态
+     * @param num 客户端编号
+     * @param pending 待确认状态
+     */
+    void setSafetyOffPending(uint8_t num, bool pending) {
+        if (num < WS_MAX_CLIENTS_TRACKED) {
+            _safetyOffPending[num] = pending;
+        }
+    }
 
     /**
      * @brief WebSocket 事件处理函数
@@ -235,6 +325,9 @@ private:
         switch (type) {
             case WStype_DISCONNECTED:
                 Serial.printf("[WebSocket] 客户端 #%u 断开连接\n", num);
+                // 清除该客户端的认证状态
+                setAuthenticated(num, false);
+                setSafetyOffPending(num, false);
                 _clientConnected = false;
                 break;
 
@@ -245,13 +338,19 @@ private:
                                   num, ip[0], ip[1], ip[2], ip[3]);
                     _clientConnected = true;
 
-                    // 发送欢迎消息
+                    // 新连接默认未认证
+                    setAuthenticated(num, false);
+                    setSafetyOffPending(num, false);
+
+                    // 发送欢迎消息，提示需要认证
                     char welcome[256];
                     snprintf(welcome, sizeof(welcome),
                              "{\"type\":\"welcome\","
                              "\"device\":\"GalvoEye-S3\","
                              "\"version\":\"1.0.0\","
-                             "\"freeHeap\":%lu}",
+                             "\"freeHeap\":%lu,"
+                             "\"authRequired\":true,"
+                             "\"message\":\"请发送认证指令: {\\\"cmd\\\":\\\"auth\\\",\\\"token\\\":\\\"<token>\\\"}\"}",
                              ESP.getFreeHeap());
                     _server.sendTXT(num, welcome);
                 }
@@ -269,7 +368,7 @@ private:
                         processCommand(num, buffer);
                     } else {
                         Serial.println("[WebSocket] 消息过长，已丢弃");
-                        sendError("消息过长");
+                        sendErrorTo(num, "消息过长");
                     }
                 }
                 break;
@@ -306,17 +405,40 @@ private:
         // 提取 "cmd" 字段
         if (!extractJSONString(jsonStr, "cmd", cmd, sizeof(cmd))) {
             Serial.println("[WebSocket] 无法解析 cmd 字段");
-            sendError("无效的指令格式");
+            sendErrorTo(clientNum, "无效的指令格式");
             return;
         }
 
-        Serial.printf("[WebSocket] 收到指令: %s\n", cmd);
+        Serial.printf("[WebSocket] 客户端 #%u 指令: %s\n", clientNum, cmd);
+
+        // --- 认证指令 (不需要预先认证) ---
+        if (strcmp(cmd, "auth") == 0) {
+            char token[64] = {0};
+            extractJSONString(jsonStr, "token", token, sizeof(token));
+
+            if (strcmp(token, WS_AUTH_TOKEN) == 0) {
+                setAuthenticated(clientNum, true);
+                Serial.printf("[WebSocket] 客户端 #%u 认证成功\n", clientNum);
+                sendAckTo(clientNum, "auth");
+            } else {
+                Serial.printf("[WebSocket] 客户端 #%u 认证失败: Token 错误\n", clientNum);
+                sendErrorTo(clientNum, "认证失败: Token 错误");
+            }
+            return;
+        }
+
+        // --- 以下指令需要先认证 ---
+        if (!isAuthenticated(clientNum)) {
+            Serial.printf("[WebSocket] 客户端 #%u 未认证，拒绝指令: %s\n", clientNum, cmd);
+            sendErrorTo(clientNum, "未认证，请先发送认证指令");
+            return;
+        }
 
         // --- 移动指令 ---
         if (strcmp(cmd, "moveTo") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -324,13 +446,13 @@ private:
             extractJSONInt(jsonStr, "x", &x);
             extractJSONInt(jsonStr, "y", &y);
             _dac->setTarget((uint16_t)x, (uint16_t)y);
-            sendAck("moveTo");
+            sendAckTo(clientNum, "moveTo");
         }
         // --- 绘制点 ---
         else if (strcmp(cmd, "drawPoint") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -342,13 +464,13 @@ private:
             extractJSONInt(jsonStr, "b", &b);
             _dac->drawPoint((uint16_t)x, (uint16_t)y,
                             (uint8_t)r, (uint8_t)g, (uint8_t)b);
-            sendAck("drawPoint");
+            sendAckTo(clientNum, "drawPoint");
         }
         // --- 绘制线 ---
         else if (strcmp(cmd, "drawLine") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -363,13 +485,13 @@ private:
             _dac->drawLine((uint16_t)x1, (uint16_t)y1,
                            (uint16_t)x2, (uint16_t)y2,
                            (uint8_t)r, (uint8_t)g, (uint8_t)b);
-            sendAck("drawLine");
+            sendAckTo(clientNum, "drawLine");
         }
         // --- 绘制圆 ---
         else if (strcmp(cmd, "drawCircle") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -383,13 +505,13 @@ private:
             _dac->drawCircle((uint16_t)cx, (uint16_t)cy,
                              (uint16_t)radius,
                              (uint8_t)r, (uint8_t)g, (uint8_t)b);
-            sendAck("drawCircle");
+            sendAckTo(clientNum, "drawCircle");
         }
         // --- 绘制矩形 ---
         else if (strcmp(cmd, "drawRect") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -404,13 +526,13 @@ private:
             _dac->drawRect((uint16_t)x, (uint16_t)y,
                            (uint16_t)w, (uint16_t)h,
                            (uint8_t)r, (uint8_t)g, (uint8_t)b);
-            sendAck("drawRect");
+            sendAckTo(clientNum, "drawRect");
         }
         // --- 绘制文字 ---
         else if (strcmp(cmd, "drawText") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许操作");
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
                 return;
             }
 
@@ -421,18 +543,18 @@ private:
             extractJSONInt(jsonStr, "y", &y);
             extractJSONInt(jsonStr, "scale", &scale);
             _dac->drawText(text, (uint16_t)x, (uint16_t)y, (uint8_t)scale);
-            sendAck("drawText");
+            sendAckTo(clientNum, "drawText");
         }
         // --- 关闭激光 ---
         else if (strcmp(cmd, "laserOff") == 0) {
             if (_dac) _dac->laserOff();
-            sendAck("laserOff");
+            sendAckTo(clientNum, "laserOff");
         }
         // --- 开启激光 ---
         else if (strcmp(cmd, "laserOn") == 0) {
-            if (!_dac) { sendError("DAC 未初始化"); return; }
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
             if (!_safety || !_safety->isSafeToOperate()) {
-                sendError("当前安全状态不允许开启激光");
+                sendErrorTo(clientNum, "当前安全状态不允许开启激光");
                 return;
             }
 
@@ -441,11 +563,11 @@ private:
             extractJSONInt(jsonStr, "g", &g);
             extractJSONInt(jsonStr, "b", &b);
             _dac->setLaserColor((uint8_t)r, (uint8_t)g, (uint8_t)b);
-            sendAck("laserOn");
+            sendAckTo(clientNum, "laserOn");
         }
-        // --- 设置安全模式 ---
+        // --- 设置安全模式 (off 需要二次确认) ---
         else if (strcmp(cmd, "setSafety") == 0) {
-            if (!_safety) { sendError("安全系统未初始化"); return; }
+            if (!_safety) { sendErrorTo(clientNum, "安全系统未初始化"); return; }
 
             char mode[32] = {0};
             extractJSONString(jsonStr, "mode", mode, sizeof(mode));
@@ -454,15 +576,42 @@ private:
                 _safety->setManualOverride(false);
                 _safety->setEnabled(true);
                 _safety->clearEmergencyStop();
-                sendAck("setSafety");
+                setSafetyOffPending(clientNum, false);
+                sendAckTo(clientNum, "setSafety");
             } else if (strcmp(mode, "override") == 0) {
                 _safety->setManualOverride(true);
-                sendAck("setSafety");
+                sendAckTo(clientNum, "setSafety");
             } else if (strcmp(mode, "off") == 0) {
-                _safety->setEnabled(false);
-                sendAck("setSafety");
+                // 安全系统禁用需要二次确认
+                if (!isSafetyOffPending(clientNum)) {
+                    // 第一次发送: 进入待确认状态
+                    setSafetyOffPending(clientNum, true);
+                    Serial.printf("[WebSocket] 客户端 #%u 请求禁用安全系统，等待二次确认\n", clientNum);
+                    sendErrorTo(clientNum, "安全系统禁用需要二次确认，请再次发送 setSafety off 确认");
+                } else {
+                    // 第二次发送: 执行禁用
+                    setSafetyOffPending(clientNum, false);
+                    _safety->setEnabled(false);
+                    Serial.printf("[WebSocket] 客户端 #%u 已二次确认，安全系统已禁用\n", clientNum);
+                    sendAckTo(clientNum, "setSafety");
+                }
             } else {
-                sendError("未知的安全模式");
+                sendErrorTo(clientNum, "未知的安全模式");
+            }
+        }
+        // --- 确认安全恢复 ---
+        else if (strcmp(cmd, "confirmRecovery") == 0) {
+            if (!_safety) { sendErrorTo(clientNum, "安全系统未初始化"); return; }
+
+            if (_safety->isRecoveryPending()) {
+                bool success = _safety->confirmRecovery();
+                if (success) {
+                    sendAckTo(clientNum, "confirmRecovery");
+                } else {
+                    sendErrorTo(clientNum, "恢复确认失败，当前环境仍不安全");
+                }
+            } else {
+                sendErrorTo(clientNum, "当前不在恢复待定状态");
             }
         }
         // --- 请求状态 ---
@@ -475,50 +624,50 @@ private:
             extractJSONString(jsonStr, "file", filename, sizeof(filename));
 
             if (strlen(filename) == 0) {
-                sendError("文件名不能为空");
+                sendErrorTo(clientNum, "文件名不能为空");
                 return;
             }
 
             if (_playILDACallback) {
                 _playILDACallback(filename);
-                sendAck("playILDA");
+                sendAckTo(clientNum, "playILDA");
             } else {
-                sendError("ILDA 播放器未初始化");
+                sendErrorTo(clientNum, "ILDA 播放器未初始化");
             }
         }
         // --- 停止 ILDA 播放 ---
         else if (strcmp(cmd, "stopILDA") == 0) {
             if (_stopILDACallback) {
                 _stopILDACallback();
-                sendAck("stopILDA");
+                sendAckTo(clientNum, "stopILDA");
             } else {
-                sendError("ILDA 播放器未初始化");
+                sendErrorTo(clientNum, "ILDA 播放器未初始化");
             }
         }
         // --- 回到中心 ---
         else if (strcmp(cmd, "home") == 0) {
             if (_dac) _dac->home();
-            sendAck("home");
+            sendAckTo(clientNum, "home");
         }
         // --- 紧急停止 ---
         else if (strcmp(cmd, "emergencyStop") == 0) {
             if (_safety) {
                 _safety->triggerEmergencyStop();
                 if (_dac) _dac->laserOff();
-                sendAck("emergencyStop");
+                sendAckTo(clientNum, "emergencyStop");
             }
         }
         // --- 解除紧急停止 ---
         else if (strcmp(cmd, "clearEmergency") == 0) {
             if (_safety) {
                 _safety->clearEmergencyStop();
-                sendAck("clearEmergency");
+                sendAckTo(clientNum, "clearEmergency");
             }
         }
         else {
             char errorMsg[64];
             snprintf(errorMsg, sizeof(errorMsg), "未知指令: %s", cmd);
-            sendError(errorMsg);
+            sendErrorTo(clientNum, errorMsg);
         }
     }
 

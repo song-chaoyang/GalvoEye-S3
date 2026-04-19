@@ -6,6 +6,12 @@
  * 基于 ESP32-S3-CAM 开发板，包含 DAC、激光 PWM、安全传感器、
  * SD 卡、按钮和 LED 等外设引脚。
  *
+ * 引脚分配原则:
+ * - 摄像头占用 GPIO 15-17 (D2-D4), 18 (PCLK), 19 (VSYNC),
+ *   20 (HREF), 21-29 (D0-D8), 32-34, 39-42, 48
+ * - SD 卡使用 SDMMC 模式占用 GPIO 38-40 (CMD, CLK, D0)
+ * - 可用引脚: GPIO 0-14, 46, 47, 45
+ *
  * @note 基于 bbLaser 项目衍生 (CC-BY-NC-SA 3.0)
  */
 
@@ -16,21 +22,18 @@
 // ESP32-S3-CAM 板载引脚
 // ============================================================
 
-// 板载 LED (通常为 GPIO4，红灯)
+// 板载闪光灯 LED (GPIO4，注意: 部分板子可能不同)
 #define PIN_BOARD_LED         4
-
-// 闪光灯 LED (GPIO33)
-#define PIN_FLASH_LED         33
 
 // ============================================================
 // MCP4822 DAC SPI 引脚 (控制 X/Y 振镜)
 // ============================================================
 
-// SPI 总线引脚 (使用 SPI2 / HSPI)
+// SPI 总线引脚 (使用 FSPI)
+#define PIN_DAC_SPI_CS        10   // DAC 片选信号
 #define PIN_DAC_SPI_SCK       12   // SPI 时钟
 #define PIN_DAC_SPI_MOSI      11   // SPI 主出从入 (数据)
 #define PIN_DAC_SPI_MISO      13   // SPI 主入从出 (未使用，但保留)
-#define PIN_DAC_SPI_CS        10   // DAC 片选信号
 
 // MCP4822 通道选择通过数据位控制，无需额外引脚
 // 通道 A -> X 振镜
@@ -40,9 +43,9 @@
 // 激光 PWM 引脚 (RGB 三色激光二极管)
 // ============================================================
 
-#define PIN_LASER_R           15   // 红色激光 PWM
-#define PIN_LASER_G           16   // 绿色激光 PWM
-#define PIN_LASER_B           17   // 蓝色激光 PWM
+#define PIN_LASER_R           4    // 红色激光 PWM (LEDC 通道 0)
+#define PIN_LASER_G           5    // 绿色激光 PWM (LEDC 通道 1)
+#define PIN_LASER_B           6    // 蓝色激光 PWM (LEDC 通道 2)
 
 // 激光 PWM 参数
 #define LASER_PWM_FREQ        10000  // PWM 频率: 10kHz (避免可见闪烁)
@@ -53,25 +56,22 @@
 // ============================================================
 
 // PIR 人体红外传感器
-#define PIN_PIR_SENSOR        6     // PIR 数字输出
+#define PIN_PIR_SENSOR        3     // PIR 数字输出
 
 // VL53L1X ToF 测距传感器 (I2C 接口)
-#define PIN_TOF_SDA           21    // I2C 数据线
-#define PIN_TOF_SCL           22    // I2C 时钟线
-#define PIN_TOF_XSHUT         3     // ToF 传感器关断引脚
+// 使用 GPIO1/2 作为 I2C 引脚（SD 卡使用 SDMMC 模式，不占用 I2C 默认引脚）
+#define PIN_TOF_SDA           1     // I2C 数据线
+#define PIN_TOF_SCL           2     // I2C 时钟线
 
 // MOSFET 激光电源控制
-#define PIN_LASER_POWER       7     // MOSFET 栅极控制 (高电平=开启)
+#define PIN_MOSFET            7     // MOSFET 栅极控制 (高电平=开启)
 
 // ============================================================
-// SD 卡引脚 (SPI 模式)
+// SD 卡引脚 (SDMMC 模式)
 // ============================================================
 
-// 注意: SD 卡使用与 DAC 相同的 SPI 总线，通过不同 CS 区分
-#define PIN_SD_CS             5     // SD 卡片选信号
-#define PIN_SD_SPI_SCK        12    // 复用 DAC SPI 时钟
-#define PIN_SD_SPI_MOSI       11    // 复用 DAC SPI MOSI
-#define PIN_SD_SPI_MISO       13    // 复用 DAC SPI MISO
+// 注意: SD 卡使用 SDMMC 模式，引脚由 esp_camera/sdmmc 库自动管理
+// 不需要手动指定引脚，占用 GPIO 38-40 (CMD, CLK, D0)
 
 // ============================================================
 // 按钮引脚
@@ -84,13 +84,16 @@
 // 按钮去抖参数
 #define BTN_DEBOUNCE_MS       50    // 去抖时间 (毫秒)
 
+// 按钮长按阈值 (用于安全恢复确认)
+#define BTN_LONG_PRESS_MS     2000  // 长按 2 秒触发确认
+
 // ============================================================
 // 状态 LED 引脚
 // ============================================================
 
-#define PIN_LED_WIFI          1     // WiFi 连接状态 LED
-#define PIN_LED_SAFETY        2     // 安全状态 LED
-#define PIN_LED_PLAY          18    // 播放状态 LED
+#define PIN_LED_WIFI          42    // WiFi 连接状态 LED (板载)
+#define PIN_LED_SAFETY        46    // 安全状态 LED
+#define PIN_LED_PLAY          47    // 播放状态 LED
 
 // LED 闪烁模式
 #define LED_BLINK_SLOW_MS     1000  // 慢闪间隔 (毫秒)
@@ -143,6 +146,9 @@
 // WebSocket 参数
 #define WS_PORT               81    // WebSocket 端口
 #define WS_MAX_CLIENTS        2     // 最大客户端连接数
+
+// WebSocket 认证 Token
+#define WS_AUTH_TOKEN         "GalvoEye2026"
 
 // ============================================================
 // 系统参数

@@ -48,7 +48,7 @@
 
 | 装备 | 用途 |
 |------|------|
-| 激光防护眼镜 | **必须佩戴！** 532nm 绿光防护 |
+| 激光防护眼镜 | **必须佩戴！** 520nm 绿光防护 |
 | 防静电手环 | 防止静电损坏元件 |
 | 通风设备 | 焊接时排烟 |
 
@@ -437,7 +437,7 @@ brew install python3
 ### 6.2 创建虚拟环境
 
 ```bash
-cd GalvoEye-S3/pc-software
+cd GalvoEye-S3/software
 python3 -m venv venv
 
 # Windows
@@ -457,35 +457,40 @@ pip install -r requirements.txt
 
 | 包名 | 用途 |
 |------|------|
+| opencv-python | 图像处理与摄像头采集 |
+| ultralytics | YOLO 目标检测模型 |
 | numpy | 数值计算 |
-| opencv-python | 图像处理 |
-| pyserial | 串口通信 |
-| Pillow | 图像生成 |
-| flask | Web 控制界面（可选） |
+| websockets | WebSocket 通信（与 ESP32-S3 通信） |
+| pillow | 图像生成与处理 |
 
-### 6.4 配置串口
+### 6.4 配置网络连接
 
-1. 确认 ESP32-S3-CAM 的串口号
-2. 编辑配置文件 `config.yaml`：
+1. 确认 ESP32-S3 的 IP 地址（默认 AP 模式为 `192.168.4.1`）
+2. 编辑配置文件 `config.py`（位于 `software/` 目录下）：
 
-```yaml
-serial:
-  port: /dev/ttyUSB0    # Linux
-  # port: COM3          # Windows
-  baudrate: 115200
+```python
+# ESP32-S3 WebSocket 通信配置
+ESP32_IP = "192.168.4.1"    # ESP32 的 IP 地址
+WEBSOCKET_PORT = 81          # WebSocket 端口
+```
 
-network:
-  host: 192.168.1.xxx   # ESP32 的 IP 地址
-  port: 80
+也可以通过命令行参数指定：
+
+```bash
+python main.py --mode track --host 192.168.4.1 --port 81
 ```
 
 ### 6.5 测试连接
 
+通过 WebSocket 测试与 ESP32-S3 的连接：
+
 ```bash
-python test_connection.py
+python main.py --mode track --host 192.168.4.1
 ```
 
-如果连接成功，会显示 ESP32 的设备信息。
+> **安全认证说明：** 连接 WebSocket 后，部分固件版本需要先发送认证指令才能控制激光。请参考固件串口日志中的认证提示。如果连接成功但无法控制设备，请检查是否需要认证。
+
+如果连接成功，程序会显示连接状态信息。
 
 ---
 
@@ -502,7 +507,7 @@ python test_connection.py
 ### 7.2 运行标定程序
 
 ```bash
-python calibrate.py
+python main.py --mode calibrate
 ```
 
 ### 7.3 标定步骤
@@ -530,7 +535,7 @@ python calibrate.py
 
 #### 第四步：保存标定数据
 
-标定完成后，数据自动保存到 `calib_data.json`：
+标定完成后，数据自动保存到 `calibration_data/calibration_data.json`：
 
 ```json
 {
@@ -544,11 +549,11 @@ python calibrate.py
 
 ### 7.4 验证标定
 
-```bash
-python verify_calibration.py
-```
+标定完成后，程序会自动投射测试图形（正方形和圆形）进行验证。如果变形严重，重新运行标定：
 
-程序会投射一个正方形和圆形，检查是否变形。如果变形严重，重新标定。
+```bash
+python main.py --mode calibrate
+```
 
 ---
 
@@ -563,10 +568,24 @@ python verify_calibration.py
 
 #### 播放测试
 
-1. 通过串口或 Web 界面发送播放命令：
+1. 通过 WebSocket 发送播放指令：
 
 ```bash
-python play_ilda.py --file circle.ild --speed 30000
+python main.py --mode track --host 192.168.4.1
+```
+
+在程序运行后，通过键盘快捷键或 WebSocket 指令控制 ILDA 播放：
+
+```python
+# 通过 WebSocket 发送 ILDA 播放指令（Python 示例）
+import asyncio, websockets, json
+
+async def play_ilda():
+    async with websockets.connect("ws://192.168.4.1:81") as ws:
+        # 发送 ILDA 播放指令
+        await ws.send(json.dumps({"cmd": "play_ilda", "file": "circle.ild", "speed": 30000}))
+
+asyncio.run(play_ilda())
 ```
 
 2. 观察激光投影效果：
@@ -588,15 +607,21 @@ python play_ilda.py --file circle.ild --speed 30000
 1. 启动摄像头和目标跟踪功能：
 
 ```bash
-python start_tracking.py
+python main.py --mode track --host 192.168.4.1
 ```
 
 2. 在摄像头前移动物体（如手指、笔）
 3. 激光应跟随物体移动
-4. 调整跟踪参数：
-   - `--sensitivity`：跟踪灵敏度
-   - `--smoothing`：平滑系数（减少抖动）
-   - `--mode`：跟踪模式（color/face/point）
+4. 键盘控制：
+   - `q` 或 `ESC`：退出程序
+   - `l`：开关激光
+   - `s`：切换安全模式
+   - `h`：振镜回到原点
+5. 可选命令行参数：
+   - `--camera 1`：指定摄像头索引
+   - `--confidence 0.6`：调整检测置信度阈值
+   - `--model custom_model.pt`：使用自定义 YOLO 模型
+   - `--no-tracking`：仅检测，不跟踪
 
 ### 8.3 交互按钮测试
 
@@ -631,9 +656,7 @@ python start_tracking.py
    - 当距离 < 1m 时，激光应自动关闭
    - 当距离 > 1.5m 时，激光应自动恢复
 
-```bash
-python test_tof.py
-```
+> **注意：** ToF 传感器测试通过固件自动执行，无需额外的 PC 端测试脚本。可以通过串口日志（`pio device monitor -b 115200`）观察 ToF 测距值和安全触发状态。
 
 ### 9.2 第二层保护：HC-SR501 人体感应
 
@@ -643,23 +666,24 @@ python test_tof.py
    - 当检测到人体移动时，激光应立即关闭
    - 人体离开后延时 5 秒恢复
 
-```bash
-python test_pir.py
-```
+> **注意：** PIR 传感器测试通过固件自动执行，无需额外的 PC 端测试脚本。可以通过串口日志观察 PIR 触发状态。
 
 > **注意：** HC-SR501 上电后需要约 30 秒稳定时间。
 
 ### 9.3 第三层保护：MOSFET 紧急断电
 
-1. 通过 Web 界面或串口发送紧急停止命令
+1. 通过 Web 界面或 WebSocket 发送紧急停止命令
 2. 确认 MOSFET 立即关断（激光电源断开）
 3. 测试恢复：
    - 发送恢复命令后，确认 MOSFET 重新导通
-   - 激光不会立即恢复，需要手动确认安全后才能重新开启
+   - **激光不会立即恢复，需要手动确认安全后才能重新开启**
 
-```bash
-python test_emergency_stop.py
-```
+> **安全恢复确认说明：** 从紧急停止等危险状态恢复时，固件要求手动确认安全。这是防止激光在无人看管时自动恢复的安全设计。恢复流程：
+> 1. 确认投影区域内无人员
+> 2. 通过 WebSocket 发送恢复指令或按下 Web 界面的恢复按钮
+> 3. 确认安全后手动开启激光
+
+> **注意：** MOSFET 紧急断电测试通过固件和 WebSocket 指令执行，无需额外的 PC 端测试脚本。
 
 ### 9.4 安全系统联动测试
 
@@ -752,7 +776,7 @@ python test_emergency_stop.py
 [ERROR] VL53L1X not found at address 0x29
 ```
 
-- 运行 I2C 扫描：`python scan_i2c.py`
+- 使用 ESP32 的 I2C 扫描功能（通过串口日志或固件调试接口扫描 I2C 地址）
 - 检查 SDA/SCL 接线
 - 确认上拉电阻存在（4.7kΩ）
 - 检查 VL53L1X 地址是否为 0x29

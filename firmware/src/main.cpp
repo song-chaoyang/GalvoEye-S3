@@ -82,9 +82,11 @@ static TaskHandle_t g_safetyTaskHandle = nullptr; // 安全任务句柄
 
 // ============================================================
 // 按钮去抖辅助
-// ============================================================
-
+// ============================================================// 按钮去抖辅助
+// g_btnPressStart 记录按钮按下的起始时间，用于检测长按
 static unsigned long g_lastBtnPress[3] = {0, 0, 0}; // 三个按钮的上次按下时间
+static unsigned long g_btnPressStart[3] = {0, 0, 0}; // 三个按钮的按下起始时间
+static bool g_btnIsPressed[3] = {false, false, false}; // 三个按钮的按下状态
 static const uint8_t g_btnPins[] = {PIN_BTN_MODE, PIN_BTN_PAUSE, PIN_BTN_NEXT};
 static const int g_btnCount = 3;
 
@@ -474,17 +476,37 @@ static bool initSystem() {
 // ============================================================
 
 /**
- * @brief 扫描所有按钮
+ * @brief 扫描所有按钮 (支持短按和长按)
+ *
+ * 短按: 正常按钮功能 (模式切换、暂停、下一个)
+ * 长按 (>=2秒): 当安全系统处于 RECOVERY_PENDING 状态时，确认恢复
  */
 static void scanButtons() {
+    unsigned long now = millis();
+
     for (int i = 0; i < g_btnCount; i++) {
         // 按钮使用上拉电阻，按下时为 LOW
-        if (digitalRead(g_btnPins[i]) == LOW) {
-            unsigned long now = millis();
-            if (now - g_lastBtnPress[i] > BTN_DEBOUNCE_MS) {
-                g_lastBtnPress[i] = now;
+        bool pressed = (digitalRead(g_btnPins[i]) == LOW);
 
-                // 根据按钮索引处理
+        if (pressed && !g_btnIsPressed[i]) {
+            // 按钮刚按下
+            unsigned long nowMs = millis();
+            if (nowMs - g_lastBtnPress[i] > BTN_DEBOUNCE_MS) {
+                g_lastBtnPress[i] = nowMs;
+                g_btnPressStart[i] = nowMs;
+                g_btnIsPressed[i] = true;
+            }
+        } else if (!pressed && g_btnIsPressed[i]) {
+            // 按钮松开
+            unsigned long pressDuration = millis() - g_btnPressStart[i];
+            g_btnIsPressed[i] = false;
+
+            // 检查是否为长按 (用于安全恢复确认)
+            if (pressDuration >= BTN_LONG_PRESS_MS) {
+                Serial.printf("[按钮] 按钮 %d 长按 (%lu ms)\n", i, pressDuration);
+                handleButtonLongPress(i);
+            } else {
+                // 短按: 正常按钮功能
                 switch (i) {
                     case 0: handleModeButton(); break;
                     case 1: handlePauseButton(); break;
@@ -492,6 +514,35 @@ static void scanButtons() {
                 }
             }
         }
+
+        // 长按过程中实时检测 (不等待松开)
+        if (g_btnIsPressed[i] && (now - g_btnPressStart[i] >= BTN_LONG_PRESS_MS)) {
+            // 标记已处理，避免重复触发
+            g_btnIsPressed[i] = false;
+            Serial.printf("[按钮] 按钮 %d 长按触发 (实时检测)\n", i);
+            handleButtonLongPress(i);
+        }
+    }
+}
+
+/**
+ * @brief 按钮长按处理 (安全恢复确认)
+ * @param btnIndex 按钮索引
+ *
+ * 任意按钮长按 2 秒均可确认安全恢复
+ */
+static void handleButtonLongPress(int btnIndex) {
+    Serial.printf("[按钮] 长按检测: 尝试确认安全恢复\n");
+
+    if (g_safety.isRecoveryPending()) {
+        bool success = g_safety.confirmRecovery();
+        if (success) {
+            Serial.println("[按钮] 安全恢复已确认，系统回到正常状态");
+        } else {
+            Serial.println("[按钮] 安全恢复确认失败，当前环境仍不安全");
+        }
+    } else {
+        Serial.println("[按钮] 当前不在恢复待定状态，长按无操作");
     }
 }
 
@@ -661,11 +712,8 @@ static void onSafetyStateChange(SafetyState newState, SafetyState oldState) {
         case SAFETY_NORMAL:
             // 恢复正常: 重新启用激光电源
             g_safety.enableLaserPower();
-            // 如果 ILDA 播放被暂停，自动恢复
-            if (g_systemMode == MODE_ILDA &&
-                g_ildaPlayer.getState() == ILDA_PAUSED) {
-                g_ildaPlayer.resume();
-            }
+            // 注意: 不自动恢复 ILDA 播放，需要用户确认恢复
+            // (从 DANGER/WARNING/EMERGENCY_OFF 恢复时会先经过 RECOVERY_PENDING 状态)
             break;
 
         case SAFETY_WARNING:
@@ -690,6 +738,17 @@ static void onSafetyStateChange(SafetyState newState, SafetyState oldState) {
                 g_ildaPlayer.getState() == ILDA_PAUSED) {
                 g_ildaPlayer.stop();
             }
+            break;
+
+        case SAFETY_RECOVERY_PENDING:
+            // 恢复待定: 关闭激光，等待用户确认
+            g_dac.laserOff();
+            if (g_systemMode == MODE_ILDA &&
+                (g_ildaPlayer.getState() == ILDA_PLAYING ||
+                 g_ildaPlayer.getState() == ILDA_PAUSED)) {
+                g_ildaPlayer.pause();
+            }
+            Serial.println("[回调] 安全恢复待定 - 请长按任意按钮或发送 confirmRecovery 指令确认恢复");
             break;
     }
 }

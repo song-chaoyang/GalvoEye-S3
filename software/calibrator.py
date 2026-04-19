@@ -123,6 +123,11 @@ class Calibrator:
         Returns:
             标定点列表 [(x, y), ...]
         """
+        # 防止 grid_size 过小导致除零错误
+        if self.grid_size < 2:
+            logger.error("grid_size 必须 >= 2，当前值: %d", self.grid_size)
+            return []
+
         points = []
         n = self.grid_size
 

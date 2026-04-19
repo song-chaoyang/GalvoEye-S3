@@ -160,7 +160,7 @@ class ObjectDetector:
                 iou=self.iou_threshold,
                 imgsz=config.YOLO_IMG_SIZE,
                 verbose=False,
-                tracker="bytetrack.yaml" if self.enable_tracking else None,
+                tracker=config.YOLO_TRACKER_TYPE if self.enable_tracking else None,
             )
 
             detections = self._parse_results(results)
