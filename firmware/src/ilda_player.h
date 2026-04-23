@@ -554,10 +554,21 @@ private:
             // 根据格式代码读取点数据
             if (_formatCode == 0 || _formatCode == 1) {
                 // 3D 格式 (Type 0: 索引颜色, Type 1: 真彩色)
-                DACController::ILDAPoint3D point;
-                if (_file->read((uint8_t*)&point, sizeof(point)) != sizeof(point)) {
+                // ILDA 使用大端序，需要逐字节读取并转换
+                uint8_t pointBuf[10]; // 3D 点: x(2) + y(2) + z(2) + status(1) + colorIndex(1) = 8 字节
+                // 实际 ILDA Type 0/1 点数据为 10 字节 (含 2 字节额外颜色数据，但标准 Type 0/1 是 8 字节)
+                // 标准 ILDA 3D 点: 6 字节坐标 + 2 字节状态 = 8 字节
+                if (_file->read(pointBuf, 8) != 8) {
                     return true; // 读取失败，帧结束
                 }
+
+                // 大端序转换坐标
+                DACController::ILDAPoint3D point;
+                point.x = DACController::readBE16Signed(pointBuf);
+                point.y = DACController::readBE16Signed(pointBuf + 2);
+                point.z = DACController::readBE16Signed(pointBuf + 4);
+                point.status = pointBuf[6];
+                point.colorIndex = pointBuf[7];
 
                 // 转换坐标
                 uint16_t x = DACController::ildaToDAC(point.x);
@@ -593,10 +604,18 @@ private:
 
             } else if (_formatCode == 2 || _formatCode == 4) {
                 // 2D 格式 (Type 2: 索引颜色, Type 4: 真彩色)
-                DACController::ILDAPoint2D point;
-                if (_file->read((uint8_t*)&point, sizeof(point)) != sizeof(point)) {
+                // ILDA 使用大端序，需要逐字节读取并转换
+                uint8_t pointBuf[6]; // 2D 点: x(2) + y(2) + status(1) + colorIndex(1) = 6 字节
+                if (_file->read(pointBuf, 6) != 6) {
                     return true;
                 }
+
+                // 大端序转换坐标
+                DACController::ILDAPoint2D point;
+                point.x = DACController::readBE16Signed(pointBuf);
+                point.y = DACController::readBE16Signed(pointBuf + 2);
+                point.status = pointBuf[4];
+                point.colorIndex = pointBuf[5];
 
                 uint16_t x = DACController::ildaToDAC(point.x);
                 uint16_t y = DACController::ildaToDAC(point.y);

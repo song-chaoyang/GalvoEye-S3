@@ -142,9 +142,12 @@ PC (Python)                          ESP32-S3
 ### 前置要求
 
 - [PlatformIO](https://platformio.org/)（ESP32 固件开发）
+  - 推荐通过 [VS Code 扩展](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) 安装 PlatformIO IDE
+  - 首次安装需要下载 ESP32 工具链（约 500MB），请确保网络畅通
+  - Windows 用户需要提前安装 [CH340/CP2102 USB 驱动](https://docs.platformio.org/en/latest/faq.html#platformio-udev-rules)
 - [Python 3.9+](https://www.python.org/)（PC 端软件，可选）
-- 电烙铁 + 基础焊接工具
 - 万用表
+- 830 孔面包板 + 杜邦线（无需焊接）
 
 ### 五步上手
 
@@ -158,7 +161,7 @@ cd firmware
 pio run -t upload
 
 # 3. 连接 WiFi
-# 设备会创建热点 "GalvoEye-S3-AP"，密码 "12345678"
+# 设备会创建热点 "GalvoEye-S3"，密码 "12345678"
 # 或在代码中修改 WiFi 账号密码
 
 # 4. （可选）安装 PC 端软件
@@ -166,6 +169,7 @@ cd ../software
 pip install -r requirements.txt
 
 # 5. 运行标定
+# 前置条件：PC 已连接到 GalvoEye-S3 WiFi 热点，PC 摄像头可用
 python main.py --mode calibrate
 ```
 

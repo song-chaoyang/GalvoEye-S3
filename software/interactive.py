@@ -502,42 +502,54 @@ class InteractiveManager:
             if btn.galvo_x is None or btn.galvo_y is None:
                 continue
 
-            # 根据按钮状态选择不同的投射方式
+            # 根据按钮状态选择不同的投射方式和颜色
             if btn.state == LaserButton.STATE_PRESSED:
-                # 按下状态：填充按钮
+                # 按下状态：填充按钮（红色）
                 if btn.shape == "circle":
                     await self.comm.draw_circle(
                         btn.galvo_x, btn.galvo_y,
                         btn.size / 2,
-                        speed=30,
+                        r=0, g=0, b=255,
                     )
                 else:
                     await self.comm.draw_rect(
                         btn.galvo_x - btn.size / 2,
                         btn.galvo_y - btn.size / 2,
                         btn.size, btn.size,
-                        speed=30,
+                        r=0, g=0, b=255,
                     )
             else:
                 # 正常/悬停状态：绘制轮廓
                 if btn.shape == "circle":
                     # 使用 draw_circle 绘制轮廓（1次 WebSocket 消息代替36次）
+                    if btn.state == LaserButton.STATE_HOVER:
+                        # 悬停状态：黄色
+                        color = (0, 255, 255)
+                    else:
+                        # 正常状态：绿色
+                        color = (0, 255, 0)
                     await self.comm.draw_circle(
                         btn.galvo_x, btn.galvo_y,
                         btn.size / 2,
-                        speed=40,
+                        r=color[0], g=color[1], b=color[2],
                     )
                 else:
                     # 绘制矩形轮廓
+                    if btn.state == LaserButton.STATE_HOVER:
+                        # 悬停状态：黄色
+                        color = (0, 255, 255)
+                    else:
+                        # 正常状态：绿色
+                        color = (0, 255, 0)
                     half = btn.size / 2
                     x1 = btn.galvo_x - half
                     y1 = btn.galvo_y - half
                     x2 = btn.galvo_x + half
                     y2 = btn.galvo_y + half
-                    await self.comm.draw_line(x1, y1, x2, y1, speed=40)
-                    await self.comm.draw_line(x2, y1, x2, y2, speed=40)
-                    await self.comm.draw_line(x2, y2, x1, y2, speed=40)
-                    await self.comm.draw_line(x1, y2, x1, y1, speed=40)
+                    await self.comm.draw_line(x1, y1, x2, y1, r=color[0], g=color[1], b=color[2])
+                    await self.comm.draw_line(x2, y1, x2, y2, r=color[0], g=color[1], b=color[2])
+                    await self.comm.draw_line(x2, y2, x1, y2, r=color[0], g=color[1], b=color[2])
+                    await self.comm.draw_line(x1, y2, x1, y1, r=color[0], g=color[1], b=color[2])
 
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """

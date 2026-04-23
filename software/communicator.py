@@ -5,6 +5,8 @@ communicator.py - WebSocket 通信模块
 负责 PC 端与 ESP32-S3 振镜控制器之间的 WebSocket 通信。
 支持发送目标坐标、绘图指令、安全模式切换，以及接收设备状态。
 内置自动重连机制。
+
+指令协议与固件端 websocket_handler.h 保持一致。
 """
 
 import asyncio
@@ -33,19 +35,24 @@ class LaserCommunicator:
     发送坐标和绘图指令，接收设备状态反馈。
     """
 
-    # 指令类型常量
-    CMD_TARGET = "target"          # 发送目标坐标
-    CMD_DRAW_POINT = "draw_point"  # 绘制点
-    CMD_DRAW_LINE = "draw_line"    # 绘制线
-    CMD_DRAW_CIRCLE = "draw_circle"  # 绘制圆
-    CMD_DRAW_RECT = "draw_rect"    # 绘制矩形
-    CMD_CLEAR = "clear"            # 清除画面
-    CMD_SAFETY = "safety"          # 安全模式切换
-    CMD_HOME = "home"              # 回到原点
-    CMD_LASER_ON = "laser_on"      # 开启激光
-    CMD_LASER_OFF = "laser_off"    # 关闭激光
-    CMD_CALIBRATE = "calibrate"    # 标定点投射
-    CMD_STATUS = "status"          # 请求状态
+    # 指令类型常量（与固件 websocket_handler.h 保持一致）
+    CMD_AUTH = "auth"                    # 认证
+    CMD_MOVE_TO = "moveTo"               # 发送目标坐标
+    CMD_DRAW_POINT = "drawPoint"         # 绘制点
+    CMD_DRAW_LINE = "drawLine"           # 绘制线
+    CMD_DRAW_CIRCLE = "drawCircle"       # 绘制圆
+    CMD_DRAW_RECT = "drawRect"           # 绘制矩形
+    CMD_CLEAR = "clear"                  # 清除画面
+    CMD_SET_SAFETY = "setSafety"         # 安全模式切换
+    CMD_HOME = "home"                    # 回到原点
+    CMD_LASER_ON = "laserOn"             # 开启激光
+    CMD_LASER_OFF = "laserOff"           # 关闭激光
+    CMD_CALIBRATE = "calibrate"          # 标定点投射
+    CMD_GET_STATUS = "getStatus"         # 请求状态
+    CMD_PLAY_ILDA = "playILDA"           # 播放 ILDA 文件
+    CMD_STOP_ILDA = "stopILDA"           # 停止 ILDA 播放
+    CMD_EMERGENCY_STOP = "emergencyStop" # 紧急停止
+    CMD_CONFIRM_RECOVERY = "confirmRecovery"  # 确认恢复
 
     def __init__(
         self,
@@ -119,6 +126,8 @@ class LaserCommunicator:
         """
         连接到 ESP32-S3 WebSocket 服务器。
 
+        连接成功后会立即发送认证消息。
+
         Returns:
             bool: 连接是否成功
         """
@@ -137,6 +146,13 @@ class LaserCommunicator:
             self._connected = True
             self._retry_count = 0
             self._running = True
+
+            # 发送认证 Token
+            auth_msg = json.dumps({"cmd": self.CMD_AUTH, "token": "GalvoEye2026"})
+            await self._ws.send(auth_msg)
+            logger.info("已发送认证消息")
+            # 等待认证响应（简单等待 100ms）
+            await asyncio.sleep(0.1)
 
             # 启动后台接收任务
             self._receive_task = asyncio.create_task(self._receive_loop())
@@ -289,23 +305,23 @@ class LaserCommunicator:
     # 坐标与绘图指令
     # ============================================================
 
-    async def send_target(self, x: float, y: float, speed: float = 0.0) -> bool:
+    async def send_target(self, x: float, y: float) -> bool:
         """
         发送目标坐标到振镜。
+
+        固件期望指令: {"cmd": "moveTo", "x": ..., "y": ...}
 
         Args:
             x: X 坐标（振镜坐标范围，通常 0-4095）
             y: Y 坐标（振镜坐标范围，通常 0-4095）
-            speed: 移动速度（0 = 最大速度）
 
         Returns:
             bool: 发送是否成功
         """
         return await self._send({
-            "cmd": self.CMD_TARGET,
+            "cmd": self.CMD_MOVE_TO,
             "x": round(x, 2),
             "y": round(y, 2),
-            "speed": round(speed, 2),
         })
 
     async def send_target_pixel(self, px: float, py: float) -> bool:
@@ -324,19 +340,27 @@ class LaserCommunicator:
         """
         # 这里发送原始像素坐标，转换由调用方完成
         return await self._send({
-            "cmd": self.CMD_TARGET,
+            "cmd": self.CMD_MOVE_TO,
             "px": round(px, 2),
             "py": round(py, 2),
         })
 
-    async def draw_point(self, x: float, y: float, intensity: float = 1.0) -> bool:
+    async def draw_point(
+        self,
+        x: float, y: float,
+        r: int = 255, g: int = 255, b: int = 255,
+    ) -> bool:
         """
         在指定坐标绘制一个点。
+
+        固件期望指令: {"cmd": "drawPoint", "x": ..., "y": ..., "r": ..., "g": ..., "b": ...}
 
         Args:
             x: X 坐标
             y: Y 坐标
-            intensity: 激光强度（0.0 - 1.0）
+            r: 红色分量（0-255）
+            g: 绿色分量（0-255）
+            b: 蓝色分量（0-255）
 
         Returns:
             bool: 发送是否成功
@@ -345,22 +369,28 @@ class LaserCommunicator:
             "cmd": self.CMD_DRAW_POINT,
             "x": round(x, 2),
             "y": round(y, 2),
-            "intensity": round(intensity, 2),
+            "r": r,
+            "g": g,
+            "b": b,
         })
 
     async def draw_line(
         self,
         x1: float, y1: float,
         x2: float, y2: float,
-        speed: float = 50.0,
+        r: int = 255, g: int = 255, b: int = 255,
     ) -> bool:
         """
         绘制一条线段。
 
+        固件期望指令: {"cmd": "drawLine", "x1": ..., "y1": ..., "x2": ..., "y2": ..., "r": ..., "g": ..., "b": ...}
+
         Args:
             x1, y1: 起点坐标
             x2, y2: 终点坐标
-            speed: 绘制速度
+            r: 红色分量（0-255）
+            g: 绿色分量（0-255）
+            b: 蓝色分量（0-255）
 
         Returns:
             bool: 发送是否成功
@@ -371,48 +401,62 @@ class LaserCommunicator:
             "y1": round(y1, 2),
             "x2": round(x2, 2),
             "y2": round(y2, 2),
-            "speed": round(speed, 2),
+            "r": r,
+            "g": g,
+            "b": b,
         })
 
     async def draw_circle(
         self,
-        cx: float, cy: float,
+        x: float, y: float,
         radius: float,
-        speed: float = 50.0,
+        r: int = 255, g: int = 255, b: int = 255,
+        segments: int = 36,
     ) -> bool:
         """
         绘制一个圆形。
 
+        固件期望指令: {"cmd": "drawCircle", "x": ..., "y": ..., "radius": ..., "r": ..., "g": ..., "b": ...}
+
         Args:
-            cx, cy: 圆心坐标
+            x, y: 圆心坐标
             radius: 半径
-            speed: 绘制速度
+            r: 红色分量（0-255）
+            g: 绿色分量（0-255）
+            b: 蓝色分量（0-255）
+            segments: 分段数（默认 36）
 
         Returns:
             bool: 发送是否成功
         """
         return await self._send({
             "cmd": self.CMD_DRAW_CIRCLE,
-            "cx": round(cx, 2),
-            "cy": round(cy, 2),
+            "x": round(x, 2),
+            "y": round(y, 2),
             "radius": round(radius, 2),
-            "speed": round(speed, 2),
+            "r": r,
+            "g": g,
+            "b": b,
         })
 
     async def draw_rect(
         self,
         x: float, y: float,
-        width: float, height: float,
-        speed: float = 50.0,
+        w: float, h: float,
+        r: int = 255, g: int = 255, b: int = 255,
     ) -> bool:
         """
         绘制一个矩形。
 
+        固件期望指令: {"cmd": "drawRect", "x": ..., "y": ..., "w": ..., "h": ..., "r": ..., "g": ..., "b": ...}
+
         Args:
             x, y: 左上角坐标
-            width: 宽度
-            height: 高度
-            speed: 绘制速度
+            w: 宽度
+            h: 高度
+            r: 红色分量（0-255）
+            g: 绿色分量（0-255）
+            b: 蓝色分量（0-255）
 
         Returns:
             bool: 发送是否成功
@@ -421,9 +465,11 @@ class LaserCommunicator:
             "cmd": self.CMD_DRAW_RECT,
             "x": round(x, 2),
             "y": round(y, 2),
-            "w": round(width, 2),
-            "h": round(height, 2),
-            "speed": round(speed, 2),
+            "w": round(w, 2),
+            "h": round(h, 2),
+            "r": r,
+            "g": g,
+            "b": b,
         })
 
     async def clear_display(self) -> bool:
@@ -439,6 +485,8 @@ class LaserCommunicator:
         """
         振镜回到原点位置。
 
+        固件期望指令: {"cmd": "home"}
+
         Returns:
             bool: 发送是否成功
         """
@@ -452,6 +500,8 @@ class LaserCommunicator:
         """
         开启激光。
 
+        固件期望指令: {"cmd": "laserOn"}
+
         Returns:
             bool: 发送是否成功
         """
@@ -461,24 +511,28 @@ class LaserCommunicator:
         """
         关闭激光。
 
+        固件期望指令: {"cmd": "laserOff"}
+
         Returns:
             bool: 发送是否成功
         """
         return await self._send({"cmd": self.CMD_LASER_OFF})
 
-    async def set_safety_mode(self, enabled: bool) -> bool:
+    async def set_safety_mode(self, mode: str = "normal") -> bool:
         """
-        切换安全模式。
+        设置安全模式。
+
+        固件期望指令: {"cmd": "setSafety", "mode": "normal"}
 
         Args:
-            enabled: True 开启安全模式，False 关闭安全模式
+            mode: 安全模式（"normal" 或 "safety"）
 
         Returns:
             bool: 发送是否成功
         """
         return await self._send({
-            "cmd": self.CMD_SAFETY,
-            "enabled": enabled,
+            "cmd": self.CMD_SET_SAFETY,
+            "mode": mode,
         })
 
     # ============================================================
@@ -506,10 +560,70 @@ class LaserCommunicator:
         """
         请求设备状态。
 
+        固件期望指令: {"cmd": "getStatus"}
+
         Returns:
             bool: 发送是否成功
         """
-        return await self._send({"cmd": self.CMD_STATUS})
+        return await self._send({"cmd": self.CMD_GET_STATUS})
+
+    # ============================================================
+    # ILDA 文件播放指令
+    # ============================================================
+
+    async def play_ilda(self, filename: str) -> bool:
+        """
+        播放 ILDA 文件。
+
+        固件期望指令: {"cmd": "playILDA", "file": "xxx.ild"}
+
+        Args:
+            filename: ILDA 文件名（如 "heart.ild"）
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({
+            "cmd": self.CMD_PLAY_ILDA,
+            "file": filename,
+        })
+
+    async def stop_ilda(self) -> bool:
+        """
+        停止 ILDA 文件播放。
+
+        固件期望指令: {"cmd": "stopILDA"}
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({"cmd": self.CMD_STOP_ILDA})
+
+    # ============================================================
+    # 安全与紧急指令
+    # ============================================================
+
+    async def emergency_stop(self) -> bool:
+        """
+        紧急停止。
+
+        固件期望指令: {"cmd": "emergencyStop"}
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({"cmd": self.CMD_EMERGENCY_STOP})
+
+    async def confirm_recovery(self) -> bool:
+        """
+        确认恢复（紧急停止后恢复操作）。
+
+        固件期望指令: {"cmd": "confirmRecovery"}
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({"cmd": self.CMD_CONFIRM_RECOVERY})
 
     # ============================================================
     # 辅助方法

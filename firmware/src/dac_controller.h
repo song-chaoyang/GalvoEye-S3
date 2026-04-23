@@ -415,6 +415,14 @@ public:
     // ILDA 文件解析
     // ========================================================
 
+    // ILDA 格式使用大端序，ESP32-S3 是小端序，需要转换
+    static inline uint16_t readBE16(const uint8_t* p) {
+        return (uint16_t(p[0]) << 8) | p[1];
+    }
+    static inline int16_t readBE16Signed(const uint8_t* p) {
+        return (int16_t)((uint16_t(p[0]) << 8) | p[1]);
+    }
+
     /**
      * @brief ILDA 文件头结构
      */
@@ -473,7 +481,16 @@ public:
             return false;
         }
 
-        memcpy(&header, data, sizeof(ILDAHeader));
+        // 逐字段读取，处理大端序转换
+        memcpy(header.ildaStr, data, 4);            // "ILDA" 标识 (ASCII，无需转换)
+        header.formatCode = data[4];                 // 格式代码 (单字节，无需转换)
+        memcpy(header.projectName, data + 5, 8);     // 项目名称 (ASCII，无需转换)
+        memcpy(header.companyName, data + 13, 8);    // 公司名称 (ASCII，无需转换)
+        header.totalPoints = readBE16(data + 21);    // 总点数 (大端序 uint16_t)
+        header.frameNumber = readBE16(data + 23);    // 帧编号 (大端序 uint16_t)
+        header.totalFrames = readBE16(data + 25);    // 总帧数 (大端序 uint16_t)
+        header.scannerHead = data[27];               // 扫描头编号 (单字节，无需转换)
+        header.reserved = data[28];                  // 保留 (单字节，无需转换)
 
         // 验证 ILDA 标识
         if (memcmp(header.ildaStr, "ILDA", 4) != 0) {

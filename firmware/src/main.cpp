@@ -116,6 +116,7 @@ static void scanButtons();
 static void handleModeButton();
 static void handlePauseButton();
 static void handleNextButton();
+static void handleButtonLongPress(int btnIndex);
 
 // LED 更新
 static void updateLEDs();
@@ -283,17 +284,14 @@ void loop() {
 static bool initHardware() {
     Serial.println("[硬件] 正在初始化硬件...");
 
-    // --- 板载 LED ---
-    pinMode(PIN_BOARD_LED, OUTPUT);
-    digitalWrite(PIN_BOARD_LED, LOW);
-    Serial.println("[硬件] 板载 LED 初始化完成");
+    // --- 板载 LED (GPIO4 现已复用为 PIN_SD_CS，不再作为板载 LED) ---
+    // 注意: 板载 LED 功能已移除，GPIO4 分配给 SD 卡片选 (SPI 模式备用)
+    Serial.println("[硬件] 板载 LED 跳过 (GPIO4 已复用为 SD_CS)");
 
     // --- 状态 LED ---
     pinMode(PIN_LED_WIFI, OUTPUT);
-    pinMode(PIN_LED_SAFETY, OUTPUT);
     pinMode(PIN_LED_PLAY, OUTPUT);
     digitalWrite(PIN_LED_WIFI, LOW);
-    digitalWrite(PIN_LED_SAFETY, LOW);
     digitalWrite(PIN_LED_PLAY, LOW);
     Serial.println("[硬件] 状态 LED 初始化完成");
 
