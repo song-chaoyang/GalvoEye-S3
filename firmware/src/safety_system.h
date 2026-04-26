@@ -475,8 +475,7 @@ public:
         // --- 步骤 4: 执行状态转换 ---
         if (newState != _currentState) {
             // 从非正常状态恢复到正常状态时，进入恢复待定状态
-            if ((_prevState == SAFETY_DANGER || _prevState == SAFETY_EMERGENCY_OFF ||
-                 _prevState == SAFETY_WARNING) && newState == SAFETY_NORMAL) {
+            if ((_prevState == SAFETY_DANGER || _prevState == SAFETY_EMERGENCY_OFF) && newState == SAFETY_NORMAL) {
                 setStateInternal(SAFETY_RECOVERY_PENDING);
             } else {
                 setStateInternal(newState);

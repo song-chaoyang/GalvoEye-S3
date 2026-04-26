@@ -221,7 +221,8 @@ GalvoEye-S3/
 │   ├── WIRING.md             # 接线说明
 │   ├── PCB_MODIFY.md         # PCB 修改说明
 │   ├── ASSEMBLY_GUIDE.md     # 组装教程
-│   └── SAFETY.md             # 安全说明
+│   ├── ENCLOSURE.md          # 外壳设计文档
+│   ├── SAFETY.md             # 安全说明
 │
 ├── LICENSE                     # CC-BY-NC-SA 3.0 协议
 ├── .gitignore                  # Git 忽略规则

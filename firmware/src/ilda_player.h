@@ -580,12 +580,10 @@ private:
                 } else {
                     // 根据格式设置颜色
                     if (_formatCode == 1) {
-                        // Type 1: 真彩色 (颜色信息在额外字节中)
-                        // 注意: 标准 ILDA Type 1 在点数据后还有 2 字节颜色
-                        uint8_t colorData[2];
-                        if (_file->read(colorData, 2) == 2) {
-                            // 简单的颜色映射
-                            _dac->setLaserColor(255, 255, 255);
+                        // Type 1: 真彩色 (BGRA 4 字节)
+                        uint8_t colorData[4];
+                        if (_file->read(colorData, 4) == 4) {
+                            _dac->setLaserColor(colorData[2], colorData[1], colorData[0]); // B=0, G=1, R=2
                         }
                     } else {
                         // Type 0: 使用索引颜色 (简化处理，使用白色)
@@ -624,9 +622,9 @@ private:
                     _dac->laserOff();
                 } else {
                     if (_formatCode == 4) {
-                        uint8_t colorData[2];
-                        if (_file->read(colorData, 2) == 2) {
-                            _dac->setLaserColor(255, 255, 255);
+                        uint8_t colorData[4];
+                        if (_file->read(colorData, 4) == 4) {
+                            _dac->setLaserColor(colorData[2], colorData[1], colorData[0]); // B=0, G=1, R=2
                         }
                     } else {
                         _dac->setLaserColor(255, 255, 255);

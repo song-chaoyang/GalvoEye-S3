@@ -173,6 +173,9 @@ btn_dia = 4;              // 按钮开孔直径
 btn2_x = 0;               // 按钮 2 X 位置
 btn2_y = 0;               // 按钮 2 Y 位置
 
+btn3_x = 0;               // 按钮 3 X 位置
+btn3_y = -10;             // 按钮 3 Y 位置
+
 // --- 散热孔 ---
 vent_dia = 3;             // 散热孔直径
 vent_spacing = 8;         // 散热孔间距
@@ -235,6 +238,10 @@ difference() {
 
     // 按钮 2（左侧）
     translate([btn2_x, -width/2, btn2_y])
+        cylinder(d=btn_dia, h=wall*2+1, center=true);
+
+    // 按钮 3（左侧）
+    translate([btn3_x, -width/2, btn3_y])
         cylinder(d=btn_dia, h=wall*2+1, center=true);
 
     // --- 顶面散热孔 ---

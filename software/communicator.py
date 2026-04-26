@@ -43,6 +43,7 @@ class LaserCommunicator:
     CMD_DRAW_CIRCLE = "drawCircle"       # 绘制圆
     CMD_DRAW_RECT = "drawRect"           # 绘制矩形
     CMD_CLEAR = "clear"                  # 清除画面
+    CMD_DRAW_TEXT = "drawText"            # 绘制文字
     CMD_SET_SAFETY = "setSafety"         # 安全模式切换
     CMD_HOME = "home"                    # 回到原点
     CMD_LASER_ON = "laserOn"             # 开启激光
@@ -53,6 +54,7 @@ class LaserCommunicator:
     CMD_STOP_ILDA = "stopILDA"           # 停止 ILDA 播放
     CMD_EMERGENCY_STOP = "emergencyStop" # 紧急停止
     CMD_CONFIRM_RECOVERY = "confirmRecovery"  # 确认恢复
+    CMD_CLEAR_EMERGENCY = "clearEmergency"  # 解除紧急停止
 
     def __init__(
         self,
@@ -341,8 +343,8 @@ class LaserCommunicator:
         # 这里发送原始像素坐标，转换由调用方完成
         return await self._send({
             "cmd": self.CMD_MOVE_TO,
-            "px": round(px, 2),
-            "py": round(py, 2),
+            "x": round(px, 2),
+            "y": round(py, 2),
         })
 
     async def draw_point(
@@ -480,6 +482,40 @@ class LaserCommunicator:
             bool: 发送是否成功
         """
         return await self._send({"cmd": self.CMD_CLEAR})
+
+    async def draw_text(
+        self,
+        text: str,
+        x: float, y: float,
+        r: int = 255, g: int = 255, b: int = 255,
+        scale: int = 3,
+    ) -> bool:
+        """
+        绘制文字。
+
+        固件期望指令: {"cmd": "drawText", "text": "...", "x": ..., "y": ..., "r": ..., "g": ..., "b": ..., "scale": ...}
+
+        Args:
+            text: 要绘制的文字（仅支持 ASCII 可打印字符）
+            x, y: 起始坐标
+            r: 红色分量（0-255）
+            g: 绿色分量（0-255）
+            b: 蓝色分量（0-255）
+            scale: 缩放比例（默认 3）
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({
+            "cmd": self.CMD_DRAW_TEXT,
+            "text": text,
+            "x": round(x, 2),
+            "y": round(y, 2),
+            "r": r,
+            "g": g,
+            "b": b,
+            "scale": scale,
+        })
 
     async def go_home(self) -> bool:
         """
@@ -624,6 +660,17 @@ class LaserCommunicator:
             bool: 发送是否成功
         """
         return await self._send({"cmd": self.CMD_CONFIRM_RECOVERY})
+
+    async def clear_emergency(self) -> bool:
+        """
+        解除紧急停止。
+
+        固件期望指令: {"cmd": "clearEmergency"}
+
+        Returns:
+            bool: 发送是否成功
+        """
+        return await self._send({"cmd": self.CMD_CLEAR_EMERGENCY})
 
     # ============================================================
     # 辅助方法

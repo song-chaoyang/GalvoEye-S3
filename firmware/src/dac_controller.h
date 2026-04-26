@@ -436,6 +436,7 @@ public:
         uint16_t totalFrames;    // 总帧数
         uint8_t  scannerHead;    // 扫描头编号
         uint8_t  reserved;       // 保留
+        uint8_t  reserved2[3];   // 保留 (ILDA 标准文件头为 32 字节)
     } __attribute__((packed));
 
     /**
@@ -491,6 +492,7 @@ public:
         header.totalFrames = readBE16(data + 25);    // 总帧数 (大端序 uint16_t)
         header.scannerHead = data[27];               // 扫描头编号 (单字节，无需转换)
         header.reserved = data[28];                  // 保留 (单字节，无需转换)
+        // data[29]-data[31] 为 reserved2，无需处理
 
         // 验证 ILDA 标识
         if (memcmp(header.ildaStr, "ILDA", 4) != 0) {
