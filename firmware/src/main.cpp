@@ -155,8 +155,8 @@ void setup() {
     if (!initHardware()) {
         Serial.println("[系统] 硬件初始化失败! 系统停止");
         while (1) {
-            // 错误指示: 快速闪烁板载 LED
-            digitalWrite(PIN_BOARD_LED, !digitalRead(PIN_BOARD_LED));
+            // 错误指示: 快速闪烁安全状态 LED
+            digitalWrite(PIN_LED_SAFETY, !digitalRead(PIN_LED_SAFETY));
             delay(100);
         }
     }
@@ -284,9 +284,9 @@ void loop() {
 static bool initHardware() {
     Serial.println("[硬件] 正在初始化硬件...");
 
-    // --- 板载 LED (GPIO4 现已复用为 PIN_SD_CS，不再作为板载 LED) ---
-    // 注意: 板载 LED 功能已移除，GPIO4 分配给 SD 卡片选 (SPI 模式备用)
-    Serial.println("[硬件] 板载 LED 跳过 (GPIO4 已复用为 SD_CS)");
+    // --- 板载 LED ---
+    // 注意: GPIO4 已分配给 PIN_LASER_R（红色激光 PWM），不再作为板载 LED
+    Serial.println("[硬件] 板载 LED 跳过 (GPIO4 已复用为激光 R 通道 PWM)");
 
     // --- 状态 LED ---
     pinMode(PIN_LED_WIFI, OUTPUT);

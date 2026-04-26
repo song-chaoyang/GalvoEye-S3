@@ -24,7 +24,7 @@
 #define ILDA_PLAYER_H
 
 #include <Arduino.h>
-#include <SD.h>
+#include <SD_MMC.h>
 #include <FS.h>
 #include "pin_defs.h"
 #include "dac_controller.h"
@@ -109,19 +109,19 @@ public:
     bool begin() {
         Serial.println("[ILDA] 正在初始化 SD 卡...");
 
-        // 初始化 SD 卡 (SPI 模式)
-        pinMode(PIN_SD_CS, OUTPUT);
-        digitalWrite(PIN_SD_CS, HIGH);
+        // 初始化 SD 卡 (SDMMC 模式)
+        // 注意: SDMMC 模式下引脚由库自动管理，不需要手动指定 CS 引脚
+        // SD 卡和摄像头共用部分引脚，不能同时使用
 
-        if (!SD.begin(PIN_SD_CS)) {
+        if (!SD_MMC.begin()) {
             Serial.println("[ILDA] SD 卡初始化失败!");
-            Serial.println("[ILDA] 请检查: 1) SD 卡已插入 2) 引脚连接正确 3) 卡格式为 FAT32");
+            Serial.println("[ILDA] 请检查: 1) SD 卡已插入 2) 卡格式为 FAT32");
             _currentState = ILDA_ERROR;
             _lastError = "SD 卡初始化失败";
             return false;
         }
 
-        uint64_t cardSize = SD.cardSize() / (1024 * 1024);
+        uint64_t cardSize = SD_MMC.cardSize() / (1024 * 1024);
         Serial.printf("[ILDA] SD 卡初始化成功，容量: %llu MB\n", cardSize);
 
         // 扫描 ILDA 文件
@@ -151,7 +151,7 @@ public:
 
         _totalFiles = 0;
 
-        File root = SD.open("/");
+        File root = SD_MMC.open("/");
         if (!root) {
             Serial.println("[ILDA] 无法打开 SD 卡根目录");
             return 0;
@@ -276,7 +276,7 @@ public:
         }
 
         // 打开文件
-        _file = new File(SD.open(_fileList[_currentFileIndex], FILE_READ));
+        _file = new File(SD_MMC.open(_fileList[_currentFileIndex], FILE_READ));
         if (!_file || !_file->available()) {
             Serial.printf("[ILDA] 无法打开文件: %s\n", _fileList[_currentFileIndex]);
             _lastError = "无法打开文件";

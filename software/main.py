@@ -378,7 +378,7 @@ async def run_track_mode(args):
 
     # 安全模式设置
     if connected and config.SAFETY_MODE_ENABLED:
-        await comm.set_safety_mode("safety")
+        await comm.set_safety_mode("normal")
         logger.info("安全模式已开启")
 
     logger.info("开始目标跟踪...")
@@ -480,7 +480,7 @@ async def run_track_mode(args):
                 # 切换安全模式
                 safety_mode = not safety_mode
                 if connected:
-                    await comm.set_safety_mode("safety" if safety_mode else "normal")
+                    await comm.set_safety_mode("normal" if safety_mode else "off")
                 logger.info("安全模式: %s", "开启" if safety_mode else "关闭")
             elif key == ord("l"):
                 # 切换激光

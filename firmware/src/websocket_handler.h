@@ -664,6 +664,28 @@ private:
                 sendAckTo(clientNum, "clearEmergency");
             }
         }
+        // --- 标定点投射（标定模式使用） ---
+        else if (strcmp(cmd, "calibrate") == 0) {
+            if (!_dac) { sendErrorTo(clientNum, "DAC 未初始化"); return; }
+            if (!_safety || !_safety->isSafeToOperate()) {
+                sendErrorTo(clientNum, "当前安全状态不允许操作");
+                return;
+            }
+
+            int x = 0, y = 0;
+            extractJSONInt(jsonStr, "x", &x);
+            extractJSONInt(jsonStr, "y", &y);
+            _dac->drawPoint((uint16_t)x, (uint16_t)y, 255, 255, 255);
+            sendAckTo(clientNum, "calibrate");
+        }
+        // --- 清除画面（关闭激光并回原点） ---
+        else if (strcmp(cmd, "clear") == 0) {
+            if (_dac) {
+                _dac->laserOff();
+                _dac->home();
+            }
+            sendAckTo(clientNum, "clear");
+        }
         else {
             char errorMsg[64];
             snprintf(errorMsg, sizeof(errorMsg), "未知指令: %s", cmd);

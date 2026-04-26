@@ -416,7 +416,7 @@ class LaserCommunicator:
         """
         绘制一个圆形。
 
-        固件期望指令: {"cmd": "drawCircle", "x": ..., "y": ..., "radius": ..., "r": ..., "g": ..., "b": ...}
+        固件期望指令: {"cmd": "drawCircle", "cx": ..., "cy": ..., "radius": ..., "r": ..., "g": ..., "b": ...}
 
         Args:
             x, y: 圆心坐标
@@ -431,8 +431,8 @@ class LaserCommunicator:
         """
         return await self._send({
             "cmd": self.CMD_DRAW_CIRCLE,
-            "x": round(x, 2),
-            "y": round(y, 2),
+            "cx": round(x, 2),
+            "cy": round(y, 2),
             "radius": round(radius, 2),
             "r": r,
             "g": g,
@@ -525,7 +525,7 @@ class LaserCommunicator:
         固件期望指令: {"cmd": "setSafety", "mode": "normal"}
 
         Args:
-            mode: 安全模式（"normal" 或 "safety"）
+            mode: 安全模式（"normal"、"override" 或 "off"）
 
         Returns:
             bool: 发送是否成功
