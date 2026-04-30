@@ -558,6 +558,10 @@ private:
                 return;
             }
 
+            // 确保激光电源已开启
+            _safety->enableLaserPower();
+            delay(50); // 等待 MOSFET 导通稳定
+
             int r = 255, g = 255, b = 255;
             extractJSONInt(jsonStr, "r", &r);
             extractJSONInt(jsonStr, "g", &g);

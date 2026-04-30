@@ -129,10 +129,10 @@ MCP4822 是 DIP-8 封装的 DAC 芯片，共 8 个引脚。
    | 3     6 |  Pin 3: SDI (SPI 数据输入)
    | 4     5 |  Pin 4: VDD (电源 +5V)
    +---------+
-              Pin 5: VSS (GND)
-              Pin 6: VOUTA (通道 A 输出)
-              Pin 7: VOUTB (通道 B 输出)
-              Pin 8: LDAC (同步锁存)
+   Pin 8: !LDAC (同步锁存，低电平有效)
+   Pin 7: VOUTB (通道 B 输出)
+   Pin 6: VOUTA (通道 A 输出)
+   Pin 5: VSS (GND)
 ```
 
 **防呆说明：** 如果插反了，芯片可能发热甚至烧毁。请务必确认缺口朝上、Pin 1 位置正确后再通电。

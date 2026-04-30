@@ -532,16 +532,33 @@ class LaserCommunicator:
     # 激光控制指令
     # ============================================================
 
-    async def laser_on(self) -> bool:
+    async def laser_on(
+        self,
+        r: Optional[int] = None,
+        g: Optional[int] = None,
+        b: Optional[int] = None,
+    ) -> bool:
         """
         开启激光。
 
-        固件期望指令: {"cmd": "laserOn"}
+        固件期望指令: {"cmd": "laserOn"} 或 {"cmd": "laserOn", "r": ..., "g": ..., "b": ...}
+
+        Args:
+            r: 红色分量（0-255），可选，不传则使用固件默认值
+            g: 绿色分量（0-255），可选，不传则使用固件默认值
+            b: 蓝色分量（0-255），可选，不传则使用固件默认值
 
         Returns:
             bool: 发送是否成功
         """
-        return await self._send({"cmd": self.CMD_LASER_ON})
+        msg: dict = {"cmd": self.CMD_LASER_ON}
+        if r is not None:
+            msg["r"] = r
+        if g is not None:
+            msg["g"] = g
+        if b is not None:
+            msg["b"] = b
+        return await self._send(msg)
 
     async def laser_off(self) -> bool:
         """

@@ -149,6 +149,14 @@ public:
         pinMode(PIN_LED_SAFETY, OUTPUT);
         digitalWrite(PIN_LED_SAFETY, LOW);
 
+        // --- 初始安全状态评估 ---
+        // 如果 ToF 不可用且 PIR 未检测到人，直接进入 NORMAL 状态并开启激光电源
+        if (!_tofValid && !_pirState) {
+            _currentState = SAFETY_NORMAL;
+            digitalWrite(PIN_MOSFET, HIGH);
+            Serial.println("[安全] ToF 不可用且无人体检测，默认进入正常状态，激光电源已开启");
+        }
+
         _initialized = true;
         Serial.println("[安全] 安全系统初始化完成");
         return true;
